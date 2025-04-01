@@ -6,7 +6,6 @@
 - [Overview](#overview)
 - [Features](#features)
   - [Core Features](#core-features)
-  - [Extra Highlights](#extra-highlights)
 - [Requirements](#requirements)
 - [How to Run](#how-to-run)
 
@@ -23,12 +22,6 @@ IscTorrent is a simple yet effective tool to simulate and test peer-to-peer (P2P
 - **Peer-to-Peer Communication**: Nodes interact directly without relying on a central server.
 - **File Search & Download**: Browse files across the network and download them from connected peers.
 - **Manual Connections**: Easily link nodes by entering the appropriate port through the interface.
-
-### Extra Highlights
-- **Parallel Downloads**: Download different parts of a file from multiple nodes at the same time.
-- **Multithreaded System**: Handle uploads and downloads simultaneously for faster and safer file exchange.
-- **Resilient Transfers**: Downloads continue even if one peer goes offline mid-transfer.
-- **Spam Protection**: Avoids redundant downloads and unnecessary network load.
 
 ---
 
