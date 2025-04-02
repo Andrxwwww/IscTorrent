@@ -55,8 +55,9 @@ Before running the app, ensure you have the following installed:
 2. Navigate to the root directory of the project.
 3. Run the following command:
    ```bash
-   ./run_project.bat 1 2 3 [N]
+   ./RunProject.bat 1 2 3 [N]
    ```
+  [N] - > is the identifier of each node
 ---
 
 ## Folder Structure
