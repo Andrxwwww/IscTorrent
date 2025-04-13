@@ -66,6 +66,12 @@ public class Node {
 
     //METODOS
 
+    /**
+     * Phase 2
+     * Carrega os arquivos locais do nó.
+     * Cria a pasta de trabalho se não existir.
+     * Lê os arquivos da pasta e calcula o hash de cada um.
+     */
     private void loadLocalFiles() {
         try {
 
@@ -102,6 +108,12 @@ public class Node {
         }
     }
 
+    /**
+     * Phase 2
+     * Calcula o hash SHA-256 de um arquivo.
+     * @param file O arquivo para calcular o hash.
+     * @return O hash do arquivo em formato hexadecimal.
+     */
     private String calculateFileHash(File file){
         try {
             
