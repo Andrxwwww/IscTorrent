@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.util.*;
 
+import Download.FileBlockRequestMessage;
+
 public class Node {
 
     private final int DEFAULT_PORT = 8080;

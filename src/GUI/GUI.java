@@ -7,6 +7,8 @@ import javax.swing.*;
 
 import Core.FileSearchResult;
 import Core.Node;
+import Download.FileBlockRequestMessage;
+
 import java.util.List;
 
 public class GUI {
@@ -73,6 +75,27 @@ public class GUI {
         connectButton.addActionListener(e -> {
             GUINode connectWindow = new GUINode(this);
             connectWindow.open();
+        });
+
+        downloadButton.addActionListener(e -> {
+            int selectedIndex = resultList.getSelectedIndex();
+            if (selectedIndex == -1) {
+                JOptionPane.showMessageDialog(frame, "Seleciona um ficheiro primeiro.");
+                return;
+            }
+        
+            FileSearchResult selectedFile = listModel.getElementAt(selectedIndex);
+        
+            // Criar blocos a partir do ficheiro selecionado
+            List<FileBlockRequestMessage> blocos = FileBlockRequestMessage.createBlockList(selectedFile.getFileName(),selectedFile.getFileSize(), 10240 // 10KB por bloco
+            );
+        
+            // Imprimir os blocos na consola
+            System.out.println(" - Blocos para o ficheiro: " + selectedFile.getFileName());
+            for (FileBlockRequestMessage bloco : blocos) {
+                System.out.println(bloco);
+            }
+            System.out.println(" - Total de blocos: " + blocos.size());
         });
 
         frame.pack();
