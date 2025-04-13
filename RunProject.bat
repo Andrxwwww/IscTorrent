@@ -11,7 +11,7 @@ if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
 
 REM Compile all Java files , #TODO: ADD MORE DIRECTORIES SOON
 echo Compiling Java files...
-javac -d "%BIN_DIR%" -cp "%SRC_DIR%" "%SRC_DIR%\Main\*.java" "%SRC_DIR%\GUI\*.java" "%SRC_DIR%\Core\*.java
+javac -d "%BIN_DIR%" -cp "%SRC_DIR%" "%SRC_DIR%\Main\*.java" "%SRC_DIR%\GUI\*.java" "%SRC_DIR%\Core\*.java"
 if %errorlevel% neq 0 (
     echo Compilation failed!
     exit /b 1

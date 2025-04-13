@@ -1,14 +1,19 @@
 package GUI;
 
 import java.awt.*;
+import java.io.File;
+
 import javax.swing.*;
 
+import Core.FileSearchResult;
 import Core.Node;
+import java.util.List;
 
 public class GUI {
+
     private JFrame frame;
     private Node node;
-
+    private DefaultListModel<FileSearchResult> listModel;
 
     /**
      * Construtor para a classe GUI.
@@ -17,6 +22,7 @@ public class GUI {
     public GUI(int nodeID){
         this.node = new Node(nodeID,this);
         createGUI();
+        loadLocalFilesIntoGUI();
     }
 
     /**
@@ -39,8 +45,8 @@ public class GUI {
         frame.add(searchPanel, BorderLayout.NORTH);
 
         // Área de resultados
-        DefaultListModel<String> listModel = new DefaultListModel<>();
-        JList<String> resultList = new JList<>(listModel);
+        listModel = new DefaultListModel<>();
+        JList<FileSearchResult> resultList = new JList<>(listModel);
         JScrollPane scrollPane = new JScrollPane(resultList);
         scrollPane.setPreferredSize(new Dimension(300, 200));
 
@@ -62,8 +68,6 @@ public class GUI {
         searchButton.addActionListener(e -> {
             String keyword = searchField.getText();
             node.broadcastSearch(keyword); // Simulado
-            listModel.clear();
-            listModel.addElement("Fake result for: " + keyword);
         });
 
         connectButton.addActionListener(e -> {
@@ -73,6 +77,17 @@ public class GUI {
 
         frame.pack();
         frame.setLocationRelativeTo(null);
+    }
+
+    /**
+     * Carrega os ficheiros locais do Node na GUI.
+     */
+    public void loadLocalFilesIntoGUI() {
+        List<FileSearchResult> localFiles = node.getLocalFiles();
+        listModel.clear();
+        for(FileSearchResult result : localFiles){
+            listModel.addElement(result);
+        }
     }
 
     /**
