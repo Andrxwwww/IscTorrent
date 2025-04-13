@@ -5,6 +5,8 @@ import GUI.GUI;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.util.*;
 
 public class Node {
@@ -62,6 +64,7 @@ public class Node {
         return localFiles;
     }
 
+    //METODOS
 
     private void loadLocalFiles() {
         try {
@@ -82,12 +85,12 @@ public class Node {
 
                     String fileName = file.getName();
                     long fileSize = file.length();
-                    int hash = Objects.hash(fileName, fileSize); // calcular o hash
+                    String hash = calculateFileHash(file);
     
                     FileSearchResult result = new FileSearchResult( fileName, hash, fileSize, address, port);
     
                     localFiles.add(result);
-                    System.out.println(result);
+                    System.out.println( result.toStringFull() );
                 }
             } else {
                 System.out.println("1.2 -> Nenhum ficheiro encontrado nesta diretoria.");
@@ -96,6 +99,25 @@ public class Node {
             System.out.println("-------------------------------------------\n");
         } catch (Exception e) {
             System.err.println("Erro durante loadLocalFiles()" + e.getMessage());
+        }
+    }
+
+    private String calculateFileHash(File file){
+        try {
+            
+            byte[] fileBytes = Files.readAllBytes(file.toPath());
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(fileBytes);
+
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.toString();
+
+        } catch (Exception e) {
+            System.err.println("Erro durante calculateFileHash()" + e.getMessage());
+            return null;
         }
     }
     

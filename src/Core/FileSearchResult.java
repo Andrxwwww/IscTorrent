@@ -9,7 +9,7 @@ public class FileSearchResult implements Serializable {
     private static final long serialVersionUID = 1L;
     
     private String fileName;
-    private int hash;
+    private String hash;
     private long fileSize;
     private InetAddress address;
     private int port;
@@ -22,7 +22,7 @@ public class FileSearchResult implements Serializable {
      * @param address Endereço do nó que detém o ficheiro.
      * @param port Porta do nó que detém o ficheiro.
      */
-    public FileSearchResult(String fileName, int hash, long fileSize, InetAddress address, int port) {
+    public FileSearchResult(String fileName, String hash, long fileSize, InetAddress address, int port) {
         this.fileName = fileName;
         this.hash = hash;
         this.fileSize = fileSize;
@@ -35,7 +35,7 @@ public class FileSearchResult implements Serializable {
         return fileName;
     }
 
-    public int getHash() {
+    public String getHash() {
         return hash;
     }
 
@@ -53,7 +53,11 @@ public class FileSearchResult implements Serializable {
 
     @Override
     public String toString() {
-        return fileName + " [" + fileSize + " bytes]";
+        return fileName + " [" + fileSize + " bytes]" ;
+    }
+
+    public String toStringFull() {
+        return fileName + " [" + fileSize + " bytes] - :" + port + " - " + hash;
     }
 
     @Override
