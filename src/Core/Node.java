@@ -24,7 +24,7 @@ public class Node {
     private final String workFolder;
     private List<FileSearchResult> localFiles = new ArrayList<FileSearchResult>();
     private ServerThread server;
-    private List<Socket> connections = new ArrayList<>();
+    private List<NewConnectionRequest> connections = new ArrayList<>();
 
     
     /**
@@ -197,7 +197,7 @@ public class Node {
             outputStream.writeObject(request);
             outputStream.flush();
 
-            connections.add(socket);
+            connections.add(new NewConnectionRequest(targetAddress, port));
 
         } catch (Exception e) {
             System.err.println("Erro ao conectar ao nó: " + e.getMessage());
@@ -211,8 +211,8 @@ public class Node {
      * @param port A porta do nó ao qual se conectar.
      */
     private boolean isAlreadyConnected(InetAddress targetAddress, int targetPort) {
-        for (Socket socket : connections) {
-            if (socket.getInetAddress().equals(targetAddress) && socket.getPort() == targetPort) {
+        for (NewConnectionRequest request : connections) {
+            if (request.getClientAddress().equals(targetAddress) && request.getClientPort() == targetPort) {
                 return true;
             }
         }

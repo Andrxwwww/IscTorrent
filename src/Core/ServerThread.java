@@ -7,6 +7,11 @@ import java.net.Socket;
 
 import Messages.NewConnectionRequest;
 
+/**
+ * Classe responsável por gerenciar as conexões de entrada no nó.
+ * Ela escuta por novas conexões e cria um novo thread para lidar com cada conexão recebida.
+ */
+
 public class ServerThread extends Thread{
 
     private Node node;
@@ -32,7 +37,7 @@ public class ServerThread extends Thread{
         try {
             while (true){
                 Socket socket = serverSocket.accept();
-                System.out.println("Nova conexão recebida de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                System.out.println("Nova conexao recebida de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 
                 ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
                 Object obj = inputStream.readObject();

@@ -1,12 +1,11 @@
 package Messages;
 
-import java.net.Inet4Address;
+import java.io.Serializable;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 
-public class NewConnectionRequest implements java.io.Serializable {
+public class NewConnectionRequest implements Serializable {
     private static final long serialVersionUID = 1L;
-    private java.net.InetAddress clientAddress;
+    private InetAddress clientAddress;
     private int clientPort;
 
     /**
