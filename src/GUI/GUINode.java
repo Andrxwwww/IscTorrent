@@ -7,6 +7,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.net.InetAddress;
 
+
 public class GUINode {
     
     private JFrame frame;
@@ -36,6 +37,10 @@ public class GUINode {
         JButton okButton = new JButton("OK");
         JButton cancelButton = new JButton("Cancel");
 
+        /**
+         * Phase 4
+         * Liga varios nodes entre si.
+         */
         okButton.addActionListener((ActionEvent e) -> {
             try {
                 String address = addressField.getText();

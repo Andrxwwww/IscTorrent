@@ -1,9 +1,12 @@
 package Core;
 
 import GUI.GUI;
+import Messages.NewConnectionRequest;
 
 import java.io.File;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -20,6 +23,9 @@ public class Node {
     private GUI gui;
     private final String workFolder;
     private List<FileSearchResult> localFiles = new ArrayList<FileSearchResult>();
+    private ServerThread server;
+    private List<Socket> connections = new ArrayList<>();
+
     
     /**
      * Construtor para a classe GUI.
@@ -32,6 +38,7 @@ public class Node {
         this.gui = gui;
         this.workFolder = "files/dl"+nodeID;
         loadLocalFiles();
+        startServing();
     }
 
     //GETTERS
@@ -135,11 +142,109 @@ public class Node {
         }
     }
     
-
-    public void connectToNode(String address, int port) {
-        // Implementar a lógica de conexão a outro nó aqui
-        System.out.println("Conectando ao nó em " + address + ":" + port);
+    /**
+     * Phase 4
+     * Inicia o servidor para aceitar conexões de outros nós.
+     */
+    private void startServing(){
+        try {
+            server = new ServerThread(this, port);
+            server.start();
+        } catch (Exception e) {
+            System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
+        }
     }
+
+    /**
+     * Phase 4
+     * Passa de String para InetAddress.
+     * @param address O endereço IP do nó ao qual se conectar.
+     */
+    public InetAddress stringToInetAddress(String address) {
+        try {
+            return InetAddress.getByName(address);
+        } catch (Exception e) {
+            System.err.println("Erro ao converter String para InetAddress: " + e.getMessage());
+            return null;
+        }
+    }
+
+
+
+
+    /**
+     * Phase 4
+     * Conecta-se a outro nó usando o endereço e a porta fornecidos.
+     * @param address O endereço IP do nó ao qual se conectar.
+     * @param port A porta do nó ao qual se conectar.
+     */
+    public void connectToNode(String address, int port) {
+
+        InetAddress targetAddress = stringToInetAddress(address);
+
+        // Verifica se a conexão é válida antes de tentar se conectar
+        if (!isValidConnection(targetAddress, port)) {
+            return;
+        }
+
+        try {
+            Socket socket = new Socket(address, port);
+            System.out.println("Conectado com SUCESSO ao nó em " + targetAddress.getHostAddress() + ":" + port);
+
+            // Enviar uma solicitação de conexão ou outra mensagem, se necessário
+            NewConnectionRequest request = new NewConnectionRequest(this.address, this.port);
+            ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+            outputStream.writeObject(request);
+            outputStream.flush();
+
+            connections.add(socket);
+
+        } catch (Exception e) {
+            System.err.println("Erro ao conectar ao nó: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Phase 4
+     * Verifica se já existe uma conexão com o nó especificado.
+     * @param address O endereço IP do nó ao qual se conectar.
+     * @param port A porta do nó ao qual se conectar.
+     */
+    private boolean isAlreadyConnected(InetAddress targetAddress, int targetPort) {
+        for (Socket socket : connections) {
+            if (socket.getInetAddress().equals(targetAddress) && socket.getPort() == targetPort) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * Phase 4
+     * Verifica se a conexão é válida antes de tentar se conectar a outro nó.
+     * @param address O endereço IP do nó ao qual se conectar.
+     * @param port A porta do nó ao qual se conectar.
+     */
+    private boolean isValidConnection(InetAddress targetAddress, int targetPort) {
+        if (targetPort < 1024 || targetPort > 65535) {
+            System.out.println(getPortAndAdress() + " -> Falha: intervalo de portas inválido");
+            return false;
+        }
+    
+        if (targetAddress.equals(this.address) && targetPort == this.port) {
+            System.out.println(getPortAndAdress() + " -> Falha: tentativa de conectar a si próprio");
+            return false;
+        }
+    
+        if (isAlreadyConnected(targetAddress, targetPort)) {
+            System.out.println(getPortAndAdress() + " -> Falha: já existe ligação a este nó");
+            return false;
+        }
+    
+        return true;
+    }
+
 
     public void broadcastSearch(String searchText) {
         // Implementar a lógica de broadcast de pesquisa aqui
