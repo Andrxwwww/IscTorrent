@@ -45,7 +45,7 @@ public class GUINode {
             try {
                 String address = addressField.getText();
                 int port = Integer.parseInt(portField.getText());
-                node.connectToNode(address, port);
+                node.connectToNode(address ,port);
                 frame.dispose();
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(frame, "Invalid port number.");

@@ -2,12 +2,10 @@ package Core;
 
 import GUI.GUI;
 import Messages.NewConnectionRequest;
+import Messages.Connection;
 
-import java.io.File;
-import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.io.*;
+import java.net.*;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.util.*;
@@ -24,7 +22,8 @@ public class Node {
     private final String workFolder;
     private List<FileSearchResult> localFiles = new ArrayList<FileSearchResult>();
     private ServerThread server;
-    private List<NewConnectionRequest> connections = new ArrayList<>();
+    private Map<String, Connection> activeConnections = new HashMap<String, Connection>();
+
 
     
     /**
@@ -183,7 +182,7 @@ public class Node {
         InetAddress targetAddress = stringToInetAddress(address);
 
         // Verifica se a conexão é válida antes de tentar se conectar
-        if (!isValidConnection(targetAddress, port)) {
+        if (!isValidConnection(targetAddress, this.port ,port)) {
             return;
         }
 
@@ -191,17 +190,26 @@ public class Node {
             Socket socket = new Socket(address, port);
             System.out.println("Conectado com SUCESSO ao nó em " + targetAddress.getHostAddress() + ":" + port);
 
-            // Enviar uma solicitação de conexão ou outra mensagem, se necessário
-            NewConnectionRequest request = new NewConnectionRequest(this.address, this.port);
             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
+
+            NewConnectionRequest request = new NewConnectionRequest(this.address, this.port);
+            //System.out.println("Socket local port: " + socket.getLocalPort() + " | Socket port: " + socket.getPort());
             outputStream.writeObject(request);
             outputStream.flush();
 
-            connections.add(new NewConnectionRequest(targetAddress, port));
+            addConnection(targetAddress, port, socket, inputStream, outputStream);
 
         } catch (Exception e) {
             System.err.println("Erro ao conectar ao nó: " + e.getMessage());
         }
+    }
+
+
+    public void addConnection(InetAddress address, int port, Socket socket, ObjectInputStream input, ObjectOutputStream output) {
+        String key = address.getHostAddress() + ":" + port;
+        activeConnections.put(key, new Connection(socket, input, output));
+        System.out.println("Conexão adicionada: " + key);
     }
 
     /**
@@ -210,13 +218,9 @@ public class Node {
      * @param address O endereço IP do nó ao qual se conectar.
      * @param port A porta do nó ao qual se conectar.
      */
-    private boolean isAlreadyConnected(InetAddress targetAddress, int targetPort) {
-        for (NewConnectionRequest request : connections) {
-            if (request.getClientAddress().equals(targetAddress) && request.getClientPort() == targetPort) {
-                return true;
-            }
-        }
-        return false;
+    public boolean isAlreadyConnected(InetAddress targetAddress, int targetPort) {
+        String key = targetAddress.getHostAddress() + ":" + targetPort;
+        return activeConnections.containsKey(key);
     }
 
 
@@ -226,13 +230,13 @@ public class Node {
      * @param address O endereço IP do nó ao qual se conectar.
      * @param port A porta do nó ao qual se conectar.
      */
-    private boolean isValidConnection(InetAddress targetAddress, int targetPort) {
+    private boolean isValidConnection(InetAddress targetAddress, int originPort ,int targetPort) {
         if (targetPort < 1024 || targetPort > 65535) {
             System.out.println(getPortAndAdress() + " -> Falha: intervalo de portas inválido");
             return false;
         }
     
-        if (targetAddress.equals(this.address) && targetPort == this.port) {
+        if (targetAddress.equals(this.address) && targetPort == originPort) {
             System.out.println(getPortAndAdress() + " -> Falha: tentativa de conectar a si próprio");
             return false;
         }
