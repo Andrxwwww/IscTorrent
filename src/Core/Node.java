@@ -188,13 +188,13 @@ public class Node {
 
         try {
             Socket socket = new Socket(address, port);
-            System.out.println("Conectado com SUCESSO ao nó em " + targetAddress.getHostAddress() + ":" + port);
+            System.out.println("(1) Conectado ao nó em " + targetAddress.getHostAddress() + ":" + port);
 
             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
 
             NewConnectionRequest request = new NewConnectionRequest(this.address, this.port);
-            //System.out.println("Socket local port: " + socket.getLocalPort() + " | Socket port: " + socket.getPort());
+            System.out.println("(DEBUG) Socket local port: " + socket.getLocalPort() + " | Socket port: " + socket.getPort());
             outputStream.writeObject(request);
             outputStream.flush();
 
@@ -209,7 +209,7 @@ public class Node {
     public void addConnection(InetAddress address, int port, Socket socket, ObjectInputStream input, ObjectOutputStream output) {
         String key = address.getHostAddress() + ":" + port;
         activeConnections.put(key, new Connection(socket, input, output));
-        System.out.println("Conexão adicionada: " + key);
+        System.out.println("(2) Conexao adicionada: " + key);
     }
 
     /**

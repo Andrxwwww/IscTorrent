@@ -11,7 +11,7 @@ if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
 
 REM Compile all Java files , #TODO: ADD MORE DIRECTORIES SOON
 echo Compiling Java files...
-javac -d "%BIN_DIR%" -cp "%SRC_DIR%" "%SRC_DIR%\Main\*.java" "%SRC_DIR%\GUI\*.java" "%SRC_DIR%\Core\*.java"
+javac -d "%BIN_DIR%" -cp "%SRC_DIR%" "%SRC_DIR%\Main\*.java" "%SRC_DIR%\GUI\*.java" "%SRC_DIR%\Core\*.java" "%SRC_DIR%\Messages\*.java" "%SRC_DIR%\Download\*.java" 
 if %errorlevel% neq 0 (
     echo Compilation failed!
     exit /b 1
@@ -27,7 +27,7 @@ echo Starting instances...
 :loop
 if "%~1"=="" goto end
 
-echo Starting instance with node ID %1
+echo Starting node ID %1
 start "IscTorrent %1" java -cp "%BIN_DIR%" Main.IscTorrent %1
 
 shift

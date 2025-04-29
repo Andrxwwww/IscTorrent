@@ -41,9 +41,9 @@ public class ServerThread extends Thread{
         try {
             while (true){
                 Socket socket = serverSocket.accept();
-                //System.out.println("Server Socket localport: " + serverSocket.getLocalPort() );
-                //System.out.println("Socket Local Port: " + socket.getLocalPort() + "| socket port: " + socket.getPort() );
-                System.out.println("Nova conexao recebida de: " + socket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort());
+                //System.out.println("(DEBUG) Server Socket localport: " + serverSocket.getLocalPort() );
+                System.out.println("(DEBUG) Socket Local Port: " + socket.getLocalPort() + "| socket port: " + socket.getPort() );
+                System.out.println("(3) Nova conexao recebida de: " + socket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort());
 
                 ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
                 ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
@@ -52,7 +52,7 @@ public class ServerThread extends Thread{
                 // Cria um novo thread para lidar com a nova conexão
                 if (obj instanceof NewConnectionRequest) {
                     NewConnectionRequest request = (NewConnectionRequest) obj;
-                    System.out.println("Novo pedido de conexao recebido: " + request.toString());
+                    //System.out.println("(DEBUG) Novo pedido de conexao recebido: " + request.toString());
                     node.addConnection(request.getClientAddress(), request.getClientPort(), socket, inputStream, outputStream);
 
                     if (!node.isAlreadyConnected(request.getClientAddress(), request.getClientPort())) {
