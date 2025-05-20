@@ -5,24 +5,14 @@ import java.net.InetAddress;
 import java.util.Objects;
 
 public class FileSearchResult implements Serializable {
-
     private static final long serialVersionUID = 1L;
-    
     private String fileName;
-    private String hash;
+    private int hash;
     private long fileSize;
     private InetAddress address;
     private int port;
 
-    /**
-     * Construtor adaptado simplificado para uso atual.
-     * @param fileName Nome do ficheiro.
-     * @param hash Hash identificadora do ficheiro.
-     * @param fileSize Tamanho do ficheiro.
-     * @param address Endereço do nó que detém o ficheiro.
-     * @param port Porta do nó que detém o ficheiro.
-     */
-    public FileSearchResult(String fileName, String hash, long fileSize, InetAddress address, int port) {
+    public FileSearchResult(String fileName, int hash, long fileSize, InetAddress address, int port) {
         this.fileName = fileName;
         this.hash = hash;
         this.fileSize = fileSize;
@@ -30,12 +20,11 @@ public class FileSearchResult implements Serializable {
         this.port = port;
     }
 
-    // Getters necessários
     public String getFileName() {
         return fileName;
     }
 
-    public String getHash() {
+    public int getHash() {
         return hash;
     }
 
@@ -53,7 +42,7 @@ public class FileSearchResult implements Serializable {
 
     @Override
     public String toString() {
-        return fileName + " [" + fileSize + " bytes]" ;
+        return fileName + " [" + fileSize + " bytes]";
     }
 
     public String toStringFull() {

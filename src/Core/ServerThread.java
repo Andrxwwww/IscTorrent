@@ -1,75 +1,79 @@
 package Core;
 
-import java.io.ObjectInput;
+import Messages.NewConnectionRequest;
+import Messages.ConnectionHandler;
+
 import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import Messages.ConnectionHandler;
-import Messages.NewConnectionRequest;
-
-/**
- * Classe responsável por gerenciar as conexões de entrada no nó.
- * Ela escuta por novas conexões e cria um novo thread para lidar com cada conexão recebida.
- */
-
-public class ServerThread extends Thread{
-
-    private Node node;
-    private ServerSocket serverSocket;
+public class ServerThread extends Thread {
+    /**
+     * referencia ao node
+     */
+    private Node node; 
 
     /**
-     * Construtor para a classe ServerThread.
-     * @param node O nó associado a este thread.
-     * @param port A porta na qual o servidor irá escutar por conexões.
-     * @throws Exception Se ocorrer um erro ao criar o ServerSocket.
+     * referencia ao socket do servidor onde aceita as conexões
      */
+    private ServerSocket serverSocket;
+
     public ServerThread(Node node, int port) throws Exception {
         this.node = node;
         this.serverSocket = new ServerSocket(port);
-        System.out.println("Servidor iniciado na porta: " + port);
+        System.out.println(node.getPortAndAdress() + " Servidor iniciado na porta: " + port);
     }
 
     /**
-     * Método que inicia o servidor e aceita novas conexões.
-     * Ele escuta por novas conexões e cria um novo thread para lidar com cada conexão recebida.
+     * Método que inicia o servidor e aceita novas conexões
      */
     @Override
     public void run() {
         try {
-            while (true){
+            // Loop infinito para aceitar novas conexões
+            while (true) {
+                // Aceita uma nova conexão de um cliente
                 Socket socket = serverSocket.accept();
-                //System.out.println("(DEBUG) Server Socket localport: " + serverSocket.getLocalPort() );
-                System.out.println("(DEBUG) Socket Local Port: " + socket.getLocalPort() + "| socket port: " + socket.getPort() );
-                System.out.println("(3) Nova conexao recebida de: " + socket.getInetAddress().getHostAddress() + ":" + serverSocket.getLocalPort());
+                System.out.println(node.getPortAndAdress() + " Nova conexão recebida de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
 
+                // Cria o stram de saida para enviar mensagens para o cliente
                 ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+                outputStream.flush(); // Flush para garantir que o cabeçalho seja enviado antes de qualquer outro dado
+
+                // Cria o stram de entrada para enviar mensagens para o cliente
                 ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
 
+                // Aguarda a leitura de um objeto do cliente
                 Object obj = inputStream.readObject();
-                // Cria um novo thread para lidar com a nova conexão
+
+                // Verifica se o objeto recebido é do tipo NewConnectionRequest
                 if (obj instanceof NewConnectionRequest) {
                     NewConnectionRequest request = (NewConnectionRequest) obj;
-                    //System.out.println("(DEBUG) Novo pedido de conexao recebido: " + request.toString());
+                    System.out.println(node.getPortAndAdress() + " Novo pedido de conexão recebido: " + request.toString());
+
+                    // Adiciona a conexão ao nó
                     node.addConnection(request.getClientAddress(), request.getClientPort(), socket, inputStream, outputStream);
 
+                    // Inicia uma nova thread de conexão para gerenciar a comunicação com o cliente
+                    new ConnectionHandler(node, socket, inputStream, outputStream).start();
+
+                    // Verifica se o nó já está conectado ao cliente
                     if (!node.isAlreadyConnected(request.getClientAddress(), request.getClientPort())) {
+                        System.out.println(node.getPortAndAdress() + " Estabelecendo conexão de volta para: " + request.getClientAddress().getHostAddress() + ":" + request.getClientPort());
+
+                        // Se não estiver conectado, tenta conectar ao cliente
                         node.connectToNode(request.getClientAddress().getHostAddress(), request.getClientPort());
                     }
-                    
-                    new ConnectionHandler(node , socket, inputStream, outputStream).start();
-
                 } else {
-                    System.out.println("Objeto recebido não é do tipo NewConnectionRequest ou String.");
+                    System.err.println(node.getPortAndAdress() + " Objeto recebido não é do tipo NewConnectionRequest: " + obj);
+                    // Se o objeto não for do tipo NewConnectionRequest, fecha a conexão
                     socket.close();
                 }
             }
         } catch (Exception e) {
-            System.out.println("Erro ao aceitar nova conexão: " + e.getMessage());
-        } 
-
+            System.err.println(node.getPortAndAdress() + " Erro ao aceitar nova conexão: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
-    
 }

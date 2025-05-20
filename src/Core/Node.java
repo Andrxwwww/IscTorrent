@@ -1,258 +1,222 @@
 package Core;
 
 import GUI.GUI;
-import Messages.NewConnectionRequest;
+import Download.FileBlockRequestMessage;
 import Messages.Connection;
+import Messages.NewConnectionRequest;
+import Messages.WordSearchMessage;
 
-import java.io.*;
-import java.net.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.security.MessageDigest;
-import java.util.*;
-
-import Download.FileBlockRequestMessage;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Node {
-
-    private final int DEFAULT_PORT = 8080;
-    
+    private static final int DEFAULT_PORT = 8080;
     private final int port;
     private final InetAddress address;
-    private GUI gui;
+    private final GUI gui;
     private final String workFolder;
-    private List<FileSearchResult> localFiles = new ArrayList<FileSearchResult>();
+    private final List<FileSearchResult> localFiles;
     private ServerThread server;
-    private Map<String, Connection> activeConnections = new HashMap<String, Connection>();
+    private final Map<String, Connection> activeConnections;
 
-
-    
-    /**
-     * Construtor para a classe GUI.
-     * @param nodeID Identificador único para o noed.
-     * @param gui gui associada ao node.
-     */
-    public Node(int nodeID , GUI gui){
+    public Node(int nodeID, GUI gui) {
         this.port = DEFAULT_PORT + nodeID;
         this.address = getLocalAddress();
         this.gui = gui;
-        this.workFolder = "files/dl"+nodeID;
+        this.workFolder = "files/dl" + nodeID;
+        this.localFiles = new ArrayList<>();
+        this.activeConnections = new HashMap<>();
+        createWorkFolder();
         loadLocalFiles();
         startServing();
     }
 
-    //GETTERS
-
-    /**
-     * * Retorna o endereço IP local do nó.
-     * @return Endereço IP local do nó.
-     * @throws UnknownHostException se ocorrer um erro ao obter o endereço IP local.
-     * foi feito à parte de modo haver debugging com a mensagem de erro
-     */
-    public InetAddress getLocalAddress() {
-        try {
-            return InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException("1.1 -> Erro ao obter o endereço IP local", e);
+    private void createWorkFolder() {
+        File folder = new File(workFolder);
+        if (!folder.exists() && !folder.mkdirs()) {
+            throw new RuntimeException("Failed to create directory: " + workFolder);
         }
     }
 
-    /**
-     * Retorna o endereço IP do nó.
-     * @return Endereço IP do nó.
-     */
-    public String getPortAndAdress() {
-        return address.getHostAddress() + ": " + port;
-    }
-
-    /**
-     * Retorna a lista de arquivos locais.
-     * @return Lista de arquivos locais.
-     */
-    public List<FileSearchResult> getLocalFiles() {
-        return localFiles;
-    }
-
-    //METODOS
-
-    /**
-     * Phase 2
-     * Carrega os arquivos locais do nó.
-     * Cria a pasta de trabalho se não existir.
-     * Lê os arquivos da pasta e calcula o hash de cada um.
-     */
     private void loadLocalFiles() {
-        try {
-
-            File folder = new File(workFolder);
-
-            if (!folder.exists() || !folder.isDirectory()) {
-                boolean created = folder.mkdirs();
-                System.out.println("Diretoria criada: " + workFolder + " (" + created + ")");
+        File folder = new File(workFolder);
+        File[] files = folder.listFiles();
+        System.out.println("\nNode [" + getPortAndAdress() + "] - ficheiros carregados:");
+        if (files != null && files.length > 0) {
+            for (File file : files) {
+                int hash = calculateFileHash(file);
+                FileSearchResult result = new FileSearchResult(file.getName(), hash, file.length(), address, port);
+                localFiles.add(result);
+                System.out.println(result.toStringFull());
             }
-    
-            File[] files = folder.listFiles();
-    
-            System.out.println("\nNode [" + getPortAndAdress() + "] - ficheiros carregados:");
-    
-            if (files != null && files.length > 0) {
-                for (File file : files) {
-
-                    String fileName = file.getName();
-                    long fileSize = file.length();
-                    String hash = calculateFileHash(file);
-    
-                    FileSearchResult result = new FileSearchResult( fileName, hash, fileSize, address, port);
-    
-                    localFiles.add(result);
-                    System.out.println( result.toStringFull() );
-                }
-            } else {
-                System.out.println("1.2 -> Nenhum ficheiro encontrado nesta diretoria.");
-            }
-    
-            System.out.println("-------------------------------------------\n");
-        } catch (Exception e) {
-            System.err.println("Erro durante loadLocalFiles()" + e.getMessage());
+        } else {
+            System.out.println("Nenhum ficheiro encontrado nesta diretoria.");
         }
+        System.out.println("-------------------------------------------\n");
     }
 
-    /**
-     * Phase 2
-     * Calcula o hash SHA-256 de um arquivo.
-     * @param file O arquivo para calcular o hash.
-     * @return O hash do arquivo em formato hexadecimal.
-     */
-    private String calculateFileHash(File file){
+    public int calculateFileHash(File file) {
         try {
-            
             byte[] fileBytes = Files.readAllBytes(file.toPath());
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(fileBytes);
-
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                hexString.append(String.format("%02x", b));
-            }
-            return hexString.toString();
-
+            return ((hashBytes[0] & 0xFF) << 24) |
+                   ((hashBytes[1] & 0xFF) << 16) |
+                   ((hashBytes[2] & 0xFF) << 8) |
+                   (hashBytes[3] & 0xFF);
         } catch (Exception e) {
-            System.err.println("Erro durante calculateFileHash()" + e.getMessage());
-            return null;
+            System.err.println("Erro ao calcular hash do arquivo: " + e.getMessage());
+            return 0;
         }
     }
-    
-    /**
-     * Phase 4
-     * Inicia o servidor para aceitar conexões de outros nós.
-     */
-    private void startServing(){
+
+    private void startServing() {
         try {
             server = new ServerThread(this, port);
             server.start();
         } catch (Exception e) {
-            System.err.println("Erro ao iniciar o servidor: " + e.getMessage());
+            System.err.println("Erro ao iniciar servidor: " + e.getMessage());
         }
     }
 
-    /**
-     * Phase 4
-     * Passa de String para InetAddress.
-     * @param address O endereço IP do nó ao qual se conectar.
-     */
-    public InetAddress stringToInetAddress(String address) {
-        try {
-            return InetAddress.getByName(address);
-        } catch (Exception e) {
-            System.err.println("Erro ao converter String para InetAddress: " + e.getMessage());
-            return null;
-        }
-    }
-
-
-
-
-    /**
-     * Phase 4
-     * Conecta-se a outro nó usando o endereço e a porta fornecidos.
-     * @param address O endereço IP do nó ao qual se conectar.
-     * @param port A porta do nó ao qual se conectar.
-     */
     public void connectToNode(String address, int port) {
-
-        InetAddress targetAddress = stringToInetAddress(address);
-
-        // Verifica se a conexão é válida antes de tentar se conectar
-        if (!isValidConnection(targetAddress, this.port ,port)) {
-            return;
-        }
-
         try {
-            Socket socket = new Socket(address, port);
-            System.out.println("(1) Conectado ao nó em " + targetAddress.getHostAddress() + ":" + port);
-
+            InetAddress targetAddress = InetAddress.getByName(address);
+            if (!isValidConnection(targetAddress, port)) {
+                return;
+            }
+            Socket socket = new Socket(targetAddress, port);
             ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+            outputStream.flush();
+            Thread.sleep(50); // Pequeno atraso para garantir sincronização
             ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
 
             NewConnectionRequest request = new NewConnectionRequest(this.address, this.port);
-            System.out.println("(DEBUG) Socket local port: " + socket.getLocalPort() + " | Socket port: " + socket.getPort());
-            outputStream.writeObject(request);
-            outputStream.flush();
+            synchronized (outputStream) {
+                outputStream.reset();
+                outputStream.writeObject(request);
+                outputStream.flush();
+            }
+            System.out.println(getPortAndAdress() + " Enviado NewConnectionRequest para: " + targetAddress.getHostAddress() + ":" + port);
 
             addConnection(targetAddress, port, socket, inputStream, outputStream);
-
-        } catch (Exception e) {
-            System.err.println("Erro ao conectar ao nó: " + e.getMessage());
+            new Messages.ConnectionHandler(this, socket, inputStream, outputStream).start();
+        } catch (IOException | InterruptedException e) {
+            System.err.println(getPortAndAdress() + " Erro ao conectar ao nó: " + e.getMessage());
+            e.printStackTrace();
         }
     }
-
 
     public void addConnection(InetAddress address, int port, Socket socket, ObjectInputStream input, ObjectOutputStream output) {
         String key = address.getHostAddress() + ":" + port;
         activeConnections.put(key, new Connection(socket, input, output));
-        System.out.println("(2) Conexao adicionada: " + key);
+        System.out.println(getPortAndAdress() + " Conexão adicionada: " + key);
     }
 
-    /**
-     * Phase 4
-     * Verifica se já existe uma conexão com o nó especificado.
-     * @param address O endereço IP do nó ao qual se conectar.
-     * @param port A porta do nó ao qual se conectar.
-     */
+    public void removeConnection(String address, int port) {
+        String key = address + ":" + port;
+        if (activeConnections.remove(key) != null) {
+            System.out.println(getPortAndAdress() + " Conexão removida: " + key);
+        }
+    }
+
+    private boolean isValidConnection(InetAddress targetAddress, int targetPort) {
+        if (targetPort < 1024 || targetPort > 65535) {
+            System.out.println(getPortAndAdress() + " -> Falha: intervalo de portas inválido");
+            return false;
+        }
+        if (targetAddress.equals(this.address) && targetPort == this.port) {
+            System.out.println(getPortAndAdress() + " -> Falha: tentativa de conectar a si próprio");
+            return false;
+        }
+        if (isAlreadyConnected(targetAddress, targetPort)) {
+            System.out.println(getPortAndAdress() + " -> Falha: já existe ligação a este nó");
+            return false;
+        }
+        return true;
+    }
+
     public boolean isAlreadyConnected(InetAddress targetAddress, int targetPort) {
         String key = targetAddress.getHostAddress() + ":" + targetPort;
         return activeConnections.containsKey(key);
     }
 
-
-    /**
-     * Phase 4
-     * Verifica se a conexão é válida antes de tentar se conectar a outro nó.
-     * @param address O endereço IP do nó ao qual se conectar.
-     * @param port A porta do nó ao qual se conectar.
-     */
-    private boolean isValidConnection(InetAddress targetAddress, int originPort ,int targetPort) {
-        if (targetPort < 1024 || targetPort > 65535) {
-            System.out.println(getPortAndAdress() + " -> Falha: intervalo de portas inválido");
-            return false;
-        }
-    
-        if (targetAddress.equals(this.address) && targetPort == originPort) {
-            System.out.println(getPortAndAdress() + " -> Falha: tentativa de conectar a si próprio");
-            return false;
-        }
-    
-        if (isAlreadyConnected(targetAddress, targetPort)) {
-            System.out.println(getPortAndAdress() + " -> Falha: já existe ligação a este nó");
-            return false;
-        }
-    
-        return true;
-    }
-
-
     public void broadcastSearch(String searchText) {
-        // Implementar a lógica de broadcast de pesquisa aqui
-        System.out.println("Broadcasting search for: " + searchText);
+        System.out.println(getPortAndAdress() + " Iniciando pesquisa por: " + searchText);
+        gui.clearSearchResults(); // Limpa a GUI antes de exibir novos resultados
+        List<Connection> connections = new ArrayList<>(activeConnections.values());
+        for (Connection conn : connections) {
+            new Thread(() -> {
+                try {
+                    Socket socket = conn.getSocket();
+                    if (socket.isClosed()) {
+                        System.err.println(getPortAndAdress() + " Conexão fechada para " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                        removeConnection(socket.getInetAddress().getHostAddress(), socket.getPort());
+                        return;
+                    }
+                    ObjectOutputStream output = conn.getOutputStream();
+                    synchronized (output) {
+                        output.reset();
+                        output.writeObject(new WordSearchMessage(searchText));
+                        output.flush();
+                    }
+                    System.out.println(getPortAndAdress() + " Enviada WordSearchMessage para: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                    // A resposta será tratada pelo ConnectionHandler
+                } catch (Exception e) {
+                    System.err.println(getPortAndAdress() + " Erro ao enviar pesquisa para " + conn.getSocket().getInetAddress().getHostAddress() + ":" + conn.getSocket().getPort() + ": " + e.getMessage());
+                    removeConnection(conn.getSocket().getInetAddress().getHostAddress(), conn.getSocket().getPort());
+                }
+            }).start();
+        }
     }
 
+    public List<FileSearchResult> searchLocalFiles(String keyword) {
+        List<FileSearchResult> results = new ArrayList<>();
+        String search = keyword == null ? "" : keyword.toLowerCase();
+        for (FileSearchResult file : localFiles) {
+            if (file.getFileName().toLowerCase().contains(search)) {
+                results.add(file);
+            }
+        }
+        return results;
+    }
+
+    public InetAddress getAddress() {
+        return address;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public String getPortAndAdress() {
+        return address.getHostAddress() + ":" + port;
+    }
+
+    public GUI getGUI() {
+        return gui;
+    }
+
+    public String getWorkFolder() {
+        return workFolder;
+    }
+
+    private InetAddress getLocalAddress() {
+        try {
+            return InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("Erro ao obter o endereço IP local", e);
+        }
+    }
 }
