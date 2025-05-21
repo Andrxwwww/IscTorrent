@@ -35,6 +35,7 @@ public class GUI {
 
         listModel = new DefaultListModel<>();
         JList<FileSearchResult> resultList = new JList<>(listModel);
+        resultList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION); // Permite seleção múltipla
         JScrollPane scrollPane = new JScrollPane(resultList);
         scrollPane.setPreferredSize(new Dimension(300, 200));
 
@@ -62,20 +63,15 @@ public class GUI {
         });
 
         downloadButton.addActionListener(e -> {
-            int selectedIndex = resultList.getSelectedIndex();
-            if (selectedIndex == -1) {
-                JOptionPane.showMessageDialog(frame, "Seleciona um ficheiro primeiro.");
+            List<FileSearchResult> selectedFiles = resultList.getSelectedValuesList();
+            if (selectedFiles.isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "Selecione pelo menos um ficheiro.");
                 return;
             }
-            FileSearchResult selectedFile = listModel.getElementAt(selectedIndex);
-            List<FileBlockRequestMessage> blocos = FileBlockRequestMessage.createBlockList(
-                selectedFile.getHash(), selectedFile.getFileSize(), 10240
-            );
-            System.out.println(" - Blocos para o ficheiro: " + selectedFile.getFileName());
-            for (FileBlockRequestMessage bloco : blocos) {
-                System.out.println(bloco);
+            for (FileSearchResult selectedFile : selectedFiles) {
+                node.downloadFile(selectedFile);
+                JOptionPane.showMessageDialog(frame, "Download iniciado: " + selectedFile.getFileName());
             }
-            System.out.println(" - Total de blocos: " + blocos.size());
         });
 
         frame.pack();
@@ -103,4 +99,6 @@ public class GUI {
             }
         });
     }
+
+
 }

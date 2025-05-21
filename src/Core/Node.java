@@ -1,7 +1,6 @@
 package Core;
 
 import GUI.GUI;
-import Download.FileBlockRequestMessage;
 import Messages.Connection;
 import Messages.NewConnectionRequest;
 import Messages.WordSearchMessage;
@@ -20,6 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import Download.DownloadTaskManager;
+import Download.FileBlockAnswerMessage;
+
 public class Node {
     private static final int DEFAULT_PORT = 8080;
     private final int port;
@@ -29,6 +31,7 @@ public class Node {
     private final List<FileSearchResult> localFiles;
     private ServerThread server;
     private final Map<String, Connection> activeConnections;
+    private final List<FileBlockAnswerMessage> receivedBlocks;
 
     public Node(int nodeID, GUI gui) {
         this.port = DEFAULT_PORT + nodeID;
@@ -37,9 +40,34 @@ public class Node {
         this.workFolder = "files/dl" + nodeID;
         this.localFiles = new ArrayList<>();
         this.activeConnections = new HashMap<>();
+        this.receivedBlocks = new ArrayList<>();
         createWorkFolder();
         loadLocalFiles();
         startServing();
+    }
+
+    public synchronized void addReceivedBlock(FileBlockAnswerMessage answer) {
+        receivedBlocks.add(answer);
+    }
+
+    public synchronized List<FileBlockAnswerMessage> getReceivedBlocks() {
+        return new ArrayList<>(receivedBlocks);
+    }
+
+    public synchronized void removeReceivedBlock(FileBlockAnswerMessage answer) {
+        receivedBlocks.remove(answer);
+    }
+
+    public Connection getConnection(String key) {
+        return activeConnections.get(key);
+    }
+
+    public void downloadFile(FileSearchResult file) {
+        new Thread(() -> new DownloadTaskManager(this, file).startDownload()).start();
+    }
+
+    public List<Connection> getPeers() {
+        return new ArrayList<>(activeConnections.values());
     }
 
     private void createWorkFolder() {
@@ -49,7 +77,7 @@ public class Node {
         }
     }
 
-    private void loadLocalFiles() {
+    public void loadLocalFiles() {
         File folder = new File(workFolder);
         File[] files = folder.listFiles();
         System.out.println("\nNode [" + getPortAndAdress() + "] - ficheiros carregados:");

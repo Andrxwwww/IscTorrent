@@ -1,7 +1,11 @@
 package Messages;
 
 import Core.Node;
+import Download.FileBlockAnswerMessage;
+import Download.FileBlockRequestMessage;
 import Core.FileSearchResult;
+
+import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -41,84 +45,83 @@ public class ConnectionHandler extends Thread {
     }
 
     @Override
-    public void run() {
-        try {
-            // Loop para aguardar mensagens do cliente
-            while (running && !socket.isClosed()) {
-                System.out.println(node.getPortAndAdress() + " Aguardando mensagem de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+        public void run() {
+            try {
+                while (running && !socket.isClosed()) {
+                    System.out.println(node.getPortAndAdress() + " Aguardando mensagem de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                    Object obj = inputStream.readObject();
 
-                // Aguarda a leitura de um objeto do cliente
-                Object obj = inputStream.readObject();
-
-                // Verifica o tipo do objeto recebido e processa conforme necessário
-                if (obj instanceof NewConnectionRequest) {
-                    System.out.println(node.getPortAndAdress() + " NewConnectionRequest recebido: " + obj);
-                    
-                // Verifica se o objeto é uma mensagem de pesquisa    
-                } else if (obj instanceof WordSearchMessage) {
-                    WordSearchMessage searchMessage = (WordSearchMessage) obj;
-                    System.out.println(node.getPortAndAdress() + " Pesquisa recebida: " + searchMessage);
-
-                    // Realiza a pesquisa local e envia os resultados de volta
-                    List<FileSearchResult> results = node.searchLocalFiles(searchMessage.getKeyword());
-
-                    // Envia os resultados encontrados para o cliente
-                    synchronized (outputStream) {
-                        outputStream.reset(); // Limpa o cache do stream
-                        outputStream.writeObject(results); // Envia a lista de resultados
-                        outputStream.flush(); // Garante que os dados sejam enviados imediatamente
+                    if (obj instanceof NewConnectionRequest) {
+                        System.out.println(node.getPortAndAdress() + " NewConnectionRequest recebido: " + obj);
+                    } else if (obj instanceof WordSearchMessage) {
+                        WordSearchMessage searchMessage = (WordSearchMessage) obj;
+                        System.out.println(node.getPortAndAdress() + " Pesquisa recebida: " + searchMessage);
+                        List<FileSearchResult> results = node.searchLocalFiles(searchMessage.getKeyword());
+                        synchronized (outputStream) {
+                            outputStream.reset();
+                            outputStream.writeObject(results);
+                            outputStream.flush();
+                        }
+                        System.out.println(node.getPortAndAdress() + " Enviados " + results.size() + " resultados para " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                    } else if (obj instanceof List) {
+                        List<FileSearchResult> results = (List<FileSearchResult>) obj;
+                        System.out.println(node.getPortAndAdress() + " Recebidos " + results.size() + " resultados de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                        node.getGUI().updateSearchResults(results);
+                    } else if (obj instanceof FileBlockRequestMessage) {
+                        FileBlockRequestMessage request = (FileBlockRequestMessage) obj;
+                        System.out.println(node.getPortAndAdress() + " Recebido FileBlockRequestMessage: " + request);
+                        FileBlockAnswerMessage answer = createBlockAnswer(request);
+                        if (answer != null) {
+                            synchronized (outputStream) {
+                                outputStream.reset();
+                                outputStream.writeObject(answer);
+                                outputStream.flush();
+                                System.out.println(node.getPortAndAdress() + " Enviado FileBlockAnswerMessage: " + answer);
+                            }
+                        }
+                    } else if (obj instanceof FileBlockAnswerMessage) {
+                        FileBlockAnswerMessage answer = (FileBlockAnswerMessage) obj;
+                        System.out.println(node.getPortAndAdress() + " Recebido FileBlockAnswerMessage: " + answer);
+                        node.addReceivedBlock(answer);
+                    } else {
+                        System.err.println(node.getPortAndAdress() + " Mensagem desconhecida recebida: " + obj);
                     }
-                    System.out.println(node.getPortAndAdress() + " Enviados " + results.size() + " resultados para " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+                }
+            } catch (SocketException e) {
+                System.out.println(node.getPortAndAdress() + " Conexão resetada pelo outro nó: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+            } catch (java.io.InvalidClassException | java.io.StreamCorruptedException e) {
+                System.err.println(node.getPortAndAdress() + " Erro de serialização na conexão: " + e.getMessage());
+                e.printStackTrace();
+            } catch (java.io.EOFException e) {
+                System.out.println(node.getPortAndAdress() + " Conexão encerrada pelo outro nó: " + e.getMessage());
+            } catch (Exception e) {
+                if (running) {
+                    System.err.println(node.getPortAndAdress() + " Erro na conexão: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } finally {
+                node.removeConnection(socket.getInetAddress().getHostAddress(), socket.getPort());
+            }
+        }
 
-                    // Verifica se o objeto é uma lista de mensagensp de resultado de pesquisa
-                } else if (obj instanceof List) {
-                    // Verifica se a lista contém objetos do tipo FileSearchResult
-                    List<FileSearchResult> results = (List<FileSearchResult>) obj;
-                    System.out.println(node.getPortAndAdress() + " Recebidos " + results.size() + " resultados de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
+        private FileBlockAnswerMessage createBlockAnswer(FileBlockRequestMessage request) {
+            File folder = new File(node.getWorkFolder());
+            if (!folder.isDirectory()) return null;
+            File[] files = folder.listFiles();
+            if (files == null) return null;
 
-                    // Atualiza a GUI com os resultados recebidos
-                    node.getGUI().updateSearchResults(results);
-                } else {
-                    System.err.println(node.getPortAndAdress() + " Mensagem desconhecida recebida: " + obj);
+            for (File file : files) {
+                if (node.calculateFileHash(file) == request.getHash()) {
+                    return new FileBlockAnswerMessage(
+                        node.getAddress().getHostAddress(),
+                        node.getPort(),
+                        request,
+                        file
+                    );
                 }
             }
-        } catch (SocketException e) {
-            // Exceção lançada quando a conexão é resetada pelo outro nó
-            System.out.println(node.getPortAndAdress() + " Conexão resetada pelo outro nó: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
-        } catch (java.io.InvalidClassException | java.io.StreamCorruptedException e) {
-            // Exceção lançada quando há erro de serialização
-            System.err.println(node.getPortAndAdress() + " Erro de serialização na conexão: " + e.getMessage());
-            e.printStackTrace();
-        } catch (java.io.EOFException e) {
-            // Exceção lançada quando o outro nó fecha a conexão
-            System.out.println(node.getPortAndAdress() + " Conexão encerrada pelo outro nó: " + e.getMessage());
-        } catch (Exception e) {
-            if (running) {
-                System.err.println(node.getPortAndAdress() + " Erro na conexão: " + e.getMessage());
-                e.printStackTrace();
-            }
-        } finally {
-            close();
-            // Remove a conexão do nó após o fechamento
-            node.removeConnection(socket.getInetAddress().getHostAddress(), socket.getPort());
+            return null;
         }
-    }
-
-    /**
-     * Método para fechar a conexão
-     */
-    public void close() {
-        if (!running) return;
-        running = false;
-        try {
-            if (inputStream != null) inputStream.close();
-            if (outputStream != null) outputStream.close();
-            if (socket != null && !socket.isClosed()) socket.close();
-            System.out.println(node.getPortAndAdress() + " Conexão fechada para: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
-        } catch (Exception e) {
-            System.err.println(node.getPortAndAdress() + " Erro ao fechar socket: " + e.getMessage());
-        }
-    }
 
     /**
      * Método para obter o socket
