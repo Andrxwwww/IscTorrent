@@ -32,6 +32,7 @@ public class Node {
     private ServerThread server;
     private final Map<String, Connection> activeConnections;
     private final List<FileBlockAnswerMessage> receivedBlocks;
+    private final Map<String, List<FileSearchResult>> fileNameToSearchResults;
 
     public Node(int nodeID, GUI gui) {
         this.port = DEFAULT_PORT + nodeID;
@@ -41,6 +42,7 @@ public class Node {
         this.localFiles = new ArrayList<>();
         this.activeConnections = new HashMap<>();
         this.receivedBlocks = new ArrayList<>();
+        this.fileNameToSearchResults = new HashMap<>();
         createWorkFolder();
         loadLocalFiles();
         startServing();
@@ -63,7 +65,7 @@ public class Node {
     }
 
     public void downloadFile(FileSearchResult file) {
-        new Thread(() -> new DownloadTaskManager(this, file).startDownload()).start();
+        new Thread(() -> new DownloadTaskManager(this, file.getFileName()).startDownload()).start();
     }
 
     public List<Connection> getPeers() {
@@ -180,9 +182,10 @@ public class Node {
         return activeConnections.containsKey(key);
     }
 
-    public void broadcastSearch(String searchText) {
+public void broadcastSearch(String searchText) {
         System.out.println(getPortAndAdress() + " Iniciando pesquisa por: " + searchText);
-        gui.clearSearchResults(); // Limpa a GUI antes de exibir novos resultados
+        gui.clearSearchResults();
+        fileNameToSearchResults.clear(); // Limpa o mapa antes de uma nova pesquisa
         List<Connection> connections = new ArrayList<>(activeConnections.values());
         for (Connection conn : connections) {
             new Thread(() -> {
@@ -200,13 +203,25 @@ public class Node {
                         output.flush();
                     }
                     System.out.println(getPortAndAdress() + " Enviada WordSearchMessage para: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
-                    // A resposta será tratada pelo ConnectionHandler
                 } catch (Exception e) {
                     System.err.println(getPortAndAdress() + " Erro ao enviar pesquisa para " + conn.getSocket().getInetAddress().getHostAddress() + ":" + conn.getSocket().getPort() + ": " + e.getMessage());
                     removeConnection(conn.getSocket().getInetAddress().getHostAddress(), conn.getSocket().getPort());
                 }
             }).start();
         }
+    }
+
+    // Novo método para adicionar resultados de pesquisa ao mapa
+    public synchronized void addSearchResults(List<FileSearchResult> results) {
+        for (FileSearchResult result : results) {
+            fileNameToSearchResults.computeIfAbsent(result.getFileName(), k -> new ArrayList<>()).add(result);
+        }
+        gui.updateSearchResults(results);
+    }
+
+    // Método para obter FileSearchResults por nome de arquivo
+    public List<FileSearchResult> getSearchResultsForFile(String fileName) {
+        return fileNameToSearchResults.getOrDefault(fileName, new ArrayList<>());
     }
 
     public List<FileSearchResult> searchLocalFiles(String keyword) {
