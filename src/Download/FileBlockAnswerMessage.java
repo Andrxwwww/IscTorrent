@@ -1,8 +1,10 @@
 package Download;
 
-import Core.FileSearchResult;
 import java.io.Serializable;
 import java.nio.file.Files;
+
+import Messages.FileSearchResult;
+
 import java.io.File;
 import java.io.IOException;
 

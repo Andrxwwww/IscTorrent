@@ -1,4 +1,4 @@
-package Core;
+package Messages;
 
 import java.io.Serializable;
 import java.net.InetAddress;

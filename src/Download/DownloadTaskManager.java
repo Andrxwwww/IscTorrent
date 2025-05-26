@@ -1,9 +1,10 @@
 package Download;
 
-import Core.FileSearchResult;
 import Core.Node;
 import GUI.GUIDownloadStats;
 import Messages.Connection;
+import Messages.FileSearchResult;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;

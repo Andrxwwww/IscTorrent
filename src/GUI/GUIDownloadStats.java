@@ -1,7 +1,8 @@
 package GUI;
 
-import Core.FileSearchResult;
 import Core.Node;
+import Messages.FileSearchResult;
+
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;

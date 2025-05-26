@@ -1,9 +1,10 @@
 package Messages;
 
 import Core.Node;
+import Download.BlockRequestTask;
 import Download.FileBlockAnswerMessage;
 import Download.FileBlockRequestMessage;
-import Core.FileSearchResult;
+
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -47,19 +48,12 @@ public class ConnectionHandler extends Thread {
                 } else if (obj instanceof List) {
                     List<FileSearchResult> results = (List<FileSearchResult>) obj;
                     System.out.println(node.getPortAndAdress() + " Recebidos " + results.size() + " resultados de: " + socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
-                    node.addSearchResults(results); // Atualiza o mapa com resultados
+                    node.addSearchResults(results);
                 } else if (obj instanceof FileBlockRequestMessage) {
                     FileBlockRequestMessage request = (FileBlockRequestMessage) obj;
                     System.out.println(node.getPortAndAdress() + " Recebido FileBlockRequestMessage: " + request);
-                    FileBlockAnswerMessage answer = createBlockAnswer(request);
-                    if (answer != null) {
-                        synchronized (outputStream) {
-                            outputStream.reset();
-                            outputStream.writeObject(answer);
-                            outputStream.flush();
-                            System.out.println(node.getPortAndAdress() + " Enviado FileBlockAnswerMessage: " + answer);
-                        }
-                    }
+                    // Enfileira o pedido em vez de processá-lo diretamente
+                    node.addBlockRequest(new BlockRequestTask(request, new Connection(socket, inputStream, outputStream)));
                 } else if (obj instanceof FileBlockAnswerMessage) {
                     FileBlockAnswerMessage answer = (FileBlockAnswerMessage) obj;
                     System.out.println(node.getPortAndAdress() + " Recebido FileBlockAnswerMessage: " + answer);
@@ -78,25 +72,6 @@ public class ConnectionHandler extends Thread {
         } finally {
             node.removeConnection(socket.getInetAddress().getHostAddress(), socket.getPort());
         }
-    }
-
-    private FileBlockAnswerMessage createBlockAnswer(FileBlockRequestMessage request) {
-        File folder = new File(node.getWorkFolder());
-        if (!folder.isDirectory()) return null;
-        File[] files = folder.listFiles();
-        if (files == null) return null;
-
-        for (File file : files) {
-            if (node.calculateFileHash(file) == request.getHash()) {
-                return new FileBlockAnswerMessage(
-                    node.getAddress().getHostAddress(),
-                    node.getPort(),
-                    request,
-                    file
-                );
-            }
-        }
-        return null;
     }
 
     public ObjectOutputStream getOutputStream() {

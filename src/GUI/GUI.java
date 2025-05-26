@@ -1,8 +1,8 @@
 package GUI;
 
-import Core.FileSearchResult;
 import Core.Node;
 import Download.FileBlockRequestMessage;
+import Messages.FileSearchResult;
 
 import javax.swing.*;
 import java.awt.*;

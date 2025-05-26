@@ -2,6 +2,7 @@ package Core;
 
 import GUI.GUI;
 import Messages.Connection;
+import Messages.FileSearchResult;
 import Messages.NewConnectionRequest;
 import Messages.WordSearchMessage;
 
@@ -18,9 +19,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
-import Download.DownloadTaskManager;
-import Download.FileBlockAnswerMessage;
+import Download.*;
 
 public class Node {
     private static final int DEFAULT_PORT = 8080;
@@ -33,6 +35,8 @@ public class Node {
     private final Map<String, Connection> activeConnections;
     private final List<FileBlockAnswerMessage> receivedBlocks;
     private final Map<String, List<FileSearchResult>> fileNameToSearchResults;
+    private final BlockingQueue<BlockRequestTask> blockRequestQueue;
+    private Thread blockProcessingThread;
 
     public Node(int nodeID, GUI gui) {
         this.port = DEFAULT_PORT + nodeID;
@@ -43,10 +47,48 @@ public class Node {
         this.activeConnections = new HashMap<>();
         this.receivedBlocks = new ArrayList<>();
         this.fileNameToSearchResults = new HashMap<>();
+        this.blockRequestQueue = new LinkedBlockingQueue<>();
+        startBlockProcessingThread();
         createWorkFolder();
         loadLocalFiles();
         startServing();
     }
+
+        private void startBlockProcessingThread() {
+        blockProcessingThread = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    // Pega o próximo pedido da fila (bloqueia até haver um pedido)
+                    BlockRequestTask task = blockRequestQueue.take();
+                    FileBlockRequestMessage request = task.getRequest();
+                    Connection connection = task.getConnection();
+
+                    // Processa o pedido
+                    FileBlockAnswerMessage answer = createBlockAnswer(request);
+                    if (answer != null) {
+                        synchronized (connection.getOutputStream()) {
+                            connection.getOutputStream().reset();
+                            connection.getOutputStream().writeObject(answer);
+                            connection.getOutputStream().flush();
+                            System.out.println(getPortAndAdress() + " Enviado FileBlockAnswerMessage: " + answer + " para " + connection.getSocket().getInetAddress().getHostAddress() + ":" + connection.getSocket().getPort());
+                        }
+                    } else {
+                        System.err.println(getPortAndAdress() + " Não foi possível criar resposta para o pedido: " + request);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.out.println(getPortAndAdress() + " Thread de processamento de blocos interrompida.");
+                    break;
+                } catch (Exception e) {
+                    System.err.println(getPortAndAdress() + " Erro ao processar pedido de bloco: " + e.getMessage());
+                }
+            }
+        });
+        blockProcessingThread.start();
+    }
+
+    
+
 
     public synchronized void addReceivedBlock(FileBlockAnswerMessage answer) {
         receivedBlocks.add(answer);
@@ -161,6 +203,35 @@ public class Node {
         }
     }
 
+    public void addBlockRequest(BlockRequestTask task) {
+        try {
+            blockRequestQueue.put(task);
+            System.out.println(getPortAndAdress() + " Pedido de bloco adicionado à fila: " + task.getRequest());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.err.println(getPortAndAdress() + " Erro ao adicionar pedido à fila: " + e.getMessage());
+        }
+    }
+
+    private FileBlockAnswerMessage createBlockAnswer(FileBlockRequestMessage request) {
+        File folder = new File(workFolder);
+        if (!folder.isDirectory()) return null;
+        File[] files = folder.listFiles();
+        if (files == null) return null;
+
+        for (File file : files) {
+            if (calculateFileHash(file) == request.getHash()) {
+                return new FileBlockAnswerMessage(
+                    getAddress().getHostAddress(),
+                    getPort(),
+                    request,
+                    file
+                );
+            }
+        }
+        return null;
+    }
+
     private boolean isValidConnection(InetAddress targetAddress, int targetPort) {
         if (targetPort < 1024 || targetPort > 65535) {
             System.out.println(getPortAndAdress() + " -> Falha: intervalo de portas inválido");
@@ -182,7 +253,7 @@ public class Node {
         return activeConnections.containsKey(key);
     }
 
-public void broadcastSearch(String searchText) {
+    public void broadcastSearch(String searchText) {
         System.out.println(getPortAndAdress() + " Iniciando pesquisa por: " + searchText);
         gui.clearSearchResults();
         fileNameToSearchResults.clear(); // Limpa o mapa antes de uma nova pesquisa
