@@ -1,6 +1,4 @@
 package GUI;
-
-import Core.Node;
 import Messages.FileSearchResult;
 
 import javax.swing.*;

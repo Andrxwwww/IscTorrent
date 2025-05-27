@@ -8,7 +8,6 @@ import Messages.FileSearchResult;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,17 +15,17 @@ import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
 
 public class DownloadTaskManager {
-    private static final int DEFAULT_BLOCK_SIZE = 10240; // 10KB
-    private final Node node;
-    private final String fileName;
+    private static final int DEFAULT_BLOCK_SIZE = 10240; // Tamanho padrão de cada bloco (10KB)
+    private final Node node; // Referência ao nó que está realizando o download
+    private final String fileName; // Nome do arquivo a ser baixado
     private final long fileSize;
     private final int fileHash;
-    private final List<FileSearchResult> peers;
-    private final List<FileBlockRequestMessage> blockRequests;
-    private final TreeMap<Long, byte[]> receivedBlocks;
-    private final CountDownLatch latch;
+    private final List<FileSearchResult> peers; // Lista de peers que possuem o arquivo
+    private final List<FileBlockRequestMessage> blockRequests; // Lista de pedidos de blocos a serem enviados
+    private final TreeMap<Long, byte[]> receivedBlocks; // Mapa ordenado que armazena os blocos recebidos por offset
+    private final CountDownLatch latch; // Latch que aguarda a recepção de todos os blocos
     private final Map<String, Integer> blocksPerPeer; // Mapa para rastrear blocos por nó
-    private boolean running = true;
+    private boolean running = true; // Flag que indica se o download está em andamento
 
     public DownloadTaskManager(Node node, String fileName) {
         this.node = node;
@@ -44,6 +43,9 @@ public class DownloadTaskManager {
         System.out.println(node.getPortAndAdress() + " [DownloadTaskManager] Iniciado para arquivo: " + fileName);
     }
 
+    /**
+     * Inicia o processo de download do arquivo, enviando pedidos de blocos para os peers.
+     */
     public void startDownload() {
         try {
             long startTime = System.currentTimeMillis();
@@ -122,6 +124,9 @@ public class DownloadTaskManager {
         }
     }
 
+    /**
+     * Escreve o arquivo baixado no sistema de arquivos local.
+     */
     private void writeFile() {
         try {
             String baseFilePath = node.getWorkFolder() + "/" + fileName;

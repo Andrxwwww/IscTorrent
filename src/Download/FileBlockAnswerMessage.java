@@ -3,8 +3,6 @@ package Download;
 import java.io.Serializable;
 import java.nio.file.Files;
 
-import Messages.FileSearchResult;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -26,6 +24,7 @@ public class FileBlockAnswerMessage implements Serializable {
         this.data = loadDataFromFile(file);
     }
 
+    // Carrega os dados do bloco a partir do arquivo
     private byte[] loadDataFromFile(File file) {
         try {
             byte[] fileContents = Files.readAllBytes(file.toPath());
