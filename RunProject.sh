@@ -26,4 +26,5 @@ echo "Starting instances..."
 for nodeId in "$@"; do
     echo "Starting node ID $nodeId"
     # Use & to run in background, xterm/gnome-terminal can be used for new windows if desired
-    java -cp "$BIN_DIR" Main.IscTorrent
+    java -cp "$BIN_DIR" Main.IscTorrent "$nodeId" &
+done
